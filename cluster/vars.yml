@@ -1,0 +1,11 @@
+hadoop_version: "3.4.0"
+java_package: "openjdk-11-jdk"
+java_home: "/usr/lib/jvm/java-11-openjdk-amd64"
+hadoop_install_dir: "/opt/hadoop"
+hadoop_user: "hadoop"
+
+resourcemanager_ip: "192.168.1.15"
+nodemanager_ips: ["192.168.1.15", "192.168.1.16", "192.168.1.17"]
+
+yarn_resourcemanager_webapp_address: "127.0.0.1:8088"
+yarn_nodemanager_webapp_address: "127.0.0.1:8042"

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+    </property>
+    <property>
+        <name>mapreduce.application.classpath</name>
+        <value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*:$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.env</name>
+        <value>HADOOP_MAPRED_HOME={{ hadoop_install_dir }}</value>
+    </property>
+    <property>
+        <name>mapreduce.map.env</name>
+        <value>HADOOP_MAPRED_HOME={{ hadoop_install_dir }}</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.env</name>
+        <value>HADOOP_MAPRED_HOME={{ hadoop_install_dir }}</value>
+    </property>
+    <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>{{ resourcemanager_ip }}:10020</value>
+    </property>
+    <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>127.0.0.1:19888</value>
+        <description>Listen on localhost only for security. Access via SSH tunnel.</description>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.resource.mb</name>
+        <value>1024</value>
+    </property>
+    <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>1024</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>1024</value>
+    </property>
+    <property>
+        <name>mapreduce.map.java.opts</name>
+        <value>-Xmx819m</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.java.opts</name>
+        <value>-Xmx819m</value>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.command-opts</name>
+        <value>-Xmx819m</value>
+    </property>
+</configuration>

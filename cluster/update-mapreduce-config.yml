@@ -1,0 +1,48 @@
+---
+- name: Update MapReduce configuration
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Backup existing mapred-site.xml
+      copy:
+        src: "{{ hadoop_install_dir }}/etc/hadoop/mapred-site.xml"
+        dest: "{{ hadoop_install_dir }}/etc/hadoop/mapred-site.xml.backup"
+        remote_src: yes
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+      ignore_errors: yes
+
+    - name: Copy updated mapred-site.xml
+      template:
+        src: config/mapred-site.xml.j2
+        dest: "{{ hadoop_install_dir }}/etc/hadoop/mapred-site.xml"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+
+    - name: Display configuration update message
+      debug:
+        msg: "MapReduce configuration updated. No restart needed for new jobs."
+
+- name: Update helper scripts
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Copy check-mapreduce-logs.sh script
+      copy:
+        src: scripts/check-mapreduce-logs.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-mapreduce-logs.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-failed-job.sh script
+      copy:
+        src: scripts/check-failed-job.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-failed-job.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'

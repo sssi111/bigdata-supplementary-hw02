@@ -1,0 +1,270 @@
+---
+- name: Install Hadoop for YARN
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      with_items:
+        - "{{ java_package }}"
+
+    - name: Create hadoop user
+      user:
+        name: "{{ hadoop_user }}"
+        home: "/home/{{ hadoop_user }}"
+        shell: /bin/bash
+        state: present
+
+    - name: Check if Hadoop is already installed
+      stat:
+        path: "{{ hadoop_install_dir }}/bin/hadoop"
+      register: hadoop_exists
+
+    - name: Download Hadoop
+      get_url:
+        url: "https://archive.apache.org/dist/hadoop/common/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz"
+        dest: "/tmp/hadoop-{{ hadoop_version }}.tar.gz"
+      when: not hadoop_exists.stat.exists
+
+    - name: Create installation directory
+      file:
+        path: "{{ hadoop_install_dir }}"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+
+    - name: Extract Hadoop
+      unarchive:
+        src: "/tmp/hadoop-{{ hadoop_version }}.tar.gz"
+        dest: "{{ hadoop_install_dir }}"
+        remote_src: yes
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        extra_opts: ["--strip-components=1"]
+        creates: "{{ hadoop_install_dir }}/bin"
+
+    - name: Create logs directory
+      file:
+        path: "{{ hadoop_install_dir }}/logs"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Create YARN data directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+      with_items:
+        - "{{ hadoop_install_dir }}/data/yarn/local"
+        - "{{ hadoop_install_dir }}/data/yarn/logs"
+
+    - name: Set JAVA_HOME in hadoop-env.sh
+      lineinfile:
+        path: "{{ hadoop_install_dir }}/etc/hadoop/hadoop-env.sh"
+        regexp: '^export JAVA_HOME='
+        line: "export JAVA_HOME={{ java_home }}"
+
+    - name: Set HADOOP_MAPRED_HOME in hadoop-env.sh
+      lineinfile:
+        path: "{{ hadoop_install_dir }}/etc/hadoop/hadoop-env.sh"
+        regexp: '^export HADOOP_MAPRED_HOME='
+        line: "export HADOOP_MAPRED_HOME={{ hadoop_install_dir }}"
+        insertafter: EOF
+
+    - name: Create scripts directory
+      file:
+        path: "{{ hadoop_install_dir }}/scripts"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-yarn.sh script
+      copy:
+        src: scripts/check-yarn.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-yarn.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-mapreduce-logs.sh script
+      copy:
+        src: scripts/check-mapreduce-logs.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-mapreduce-logs.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-failed-job.sh script
+      copy:
+        src: scripts/check-failed-job.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-failed-job.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+- name: Configure /etc/hosts
+  hosts: all
+  become: yes
+  tasks:
+    - name: Remove localhost mappings for cluster hostnames
+      lineinfile:
+        path: /etc/hosts
+        regexp: "^127\\.0\\.1\\.1.*{{ item }}"
+        state: absent
+      with_items:
+        - "team-3-nn"
+        - "team-3-dn-00"
+        - "team-3-dn-01"
+
+    - name: Add proper host entries to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ item.ip }} {{ item.hostname }}"
+        state: present
+      with_items:
+        - { ip: "192.168.1.15", hostname: "team-3-nn" }
+        - { ip: "192.168.1.16", hostname: "team-3-dn-00" }
+        - { ip: "192.168.1.17", hostname: "team-3-dn-01" }
+
+- name: Configure YARN on all nodes
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Copy core-site.xml
+      template:
+        src: config/core-site.xml.j2
+        dest: "{{ hadoop_install_dir }}/etc/hadoop/core-site.xml"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+
+    - name: Copy yarn-site.xml
+      template:
+        src: config/yarn-site.xml.j2
+        dest: "{{ hadoop_install_dir }}/etc/hadoop/yarn-site.xml"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+
+    - name: Copy mapred-site.xml
+      template:
+        src: config/mapred-site.xml.j2
+        dest: "{{ hadoop_install_dir }}/etc/hadoop/mapred-site.xml"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+
+- name: Configure and start ResourceManager
+  hosts: resourcemanager
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Stop ResourceManager if running
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon stop resourcemanager"
+      args:
+        chdir: "{{ hadoop_install_dir }}"
+      ignore_errors: yes
+
+    - name: Remove ResourceManager pid file
+      file:
+        path: "/tmp/hadoop-{{ hadoop_user }}-resourcemanager.pid"
+        state: absent
+      ignore_errors: yes
+
+    - name: Start ResourceManager
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon start resourcemanager"
+      args:
+        chdir: "{{ hadoop_install_dir }}"
+
+    - name: Wait for ResourceManager to start
+      wait_for:
+        port: 8088
+        delay: 5
+        timeout: 60
+
+- name: Configure and start NodeManagers
+  hosts: nodemanagers
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Stop NodeManager if running
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon stop nodemanager"
+      args:
+        chdir: "{{ hadoop_install_dir }}"
+      ignore_errors: yes
+
+    - name: Remove NodeManager pid file
+      file:
+        path: "/tmp/hadoop-{{ hadoop_user }}-nodemanager.pid"
+        state: absent
+      ignore_errors: yes
+
+    - name: Start NodeManager
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon start nodemanager"
+      args:
+        chdir: "{{ hadoop_install_dir }}"
+
+    - name: Wait for NodeManager to start
+      wait_for:
+        port: 8042
+        delay: 5
+        timeout: 60
+
+- name: Configure and start JobHistoryServer
+  hosts: resourcemanager
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Stop JobHistoryServer if running
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/mapred --daemon stop historyserver"
+      args:
+        chdir: "{{ hadoop_install_dir }}"
+      ignore_errors: yes
+
+    - name: Remove JobHistoryServer pid file
+      file:
+        path: "/tmp/hadoop-{{ hadoop_user }}-historyserver.pid"
+        state: absent
+      ignore_errors: yes
+
+    - name: Start JobHistoryServer
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/mapred --daemon start historyserver"
+      args:
+        chdir: "{{ hadoop_install_dir }}"
+
+    - name: Wait for JobHistoryServer to start
+      wait_for:
+        port: 19888
+        delay: 5
+        timeout: 60
+
+- name: Verify YARN cluster
+  hosts: resourcemanager
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Wait for cluster initialization
+      wait_for:
+        timeout: 10
+
+    - name: Check YARN processes
+      shell: "ps aux | grep -E 'ResourceManager|NodeManager|JobHistoryServer' | grep -v grep"
+      register: processes
+      retries: 3
+      delay: 10
+      until: processes.stdout | length > 0
+
+    - name: Display running YARN processes
+      debug:
+        var: processes.stdout_lines

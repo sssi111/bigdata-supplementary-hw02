@@ -1,0 +1,51 @@
+---
+- name: Deploy helper scripts to cluster nodes
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Create scripts directory
+      file:
+        path: "{{ hadoop_install_dir }}/scripts"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-yarn.sh script
+      copy:
+        src: scripts/check-yarn.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-yarn.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-mapreduce-logs.sh script
+      copy:
+        src: scripts/check-mapreduce-logs.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-mapreduce-logs.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Copy check-failed-job.sh script
+      copy:
+        src: scripts/check-failed-job.sh
+        dest: "{{ hadoop_install_dir }}/scripts/check-failed-job.sh"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: '0755'
+
+    - name: Verify scripts were copied
+      stat:
+        path: "{{ hadoop_install_dir }}/scripts/{{ item }}"
+      register: script_stats
+      with_items:
+        - check-yarn.sh
+        - check-mapreduce-logs.sh
+        - check-failed-job.sh
+
+    - name: Display script locations
+      debug:
+        msg: "Scripts successfully deployed to {{ hadoop_install_dir }}/scripts/"

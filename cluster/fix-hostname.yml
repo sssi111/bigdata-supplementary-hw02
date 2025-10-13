@@ -1,0 +1,79 @@
+---
+- name: Fix hostname resolution
+  hosts: all
+  become: yes
+  tasks:
+    - name: Remove localhost mapping for team-3-nn hostname
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1.*team-3-nn'
+        state: absent
+
+    - name: Ensure proper hostname mappings exist
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ item.ip }} {{ item.hostname }}"
+        state: present
+      with_items:
+        - { ip: "192.168.1.15", hostname: "team-3-nn" }
+        - { ip: "192.168.1.16", hostname: "team-3-dn-00" }
+        - { ip: "192.168.1.17", hostname: "team-3-dn-01" }
+
+    - name: Verify hostname resolution
+      shell: "getent hosts team-3-nn"
+      register: hostname_check
+      changed_when: false
+
+    - name: Display hostname resolution
+      debug:
+        msg: "team-3-nn resolves to: {{ hostname_check.stdout }}"
+
+- name: Restart YARN services after hostname fix
+  hosts: resourcemanager
+  become: yes
+  vars:
+    hadoop_install_dir: "/opt/hadoop"
+    hadoop_user: "hadoop"
+    java_home: "/usr/lib/jvm/java-11-openjdk-amd64"
+  tasks:
+    - name: Stop ResourceManager
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon stop resourcemanager"
+      ignore_errors: yes
+
+    - name: Wait a moment
+      wait_for:
+        timeout: 3
+
+    - name: Start ResourceManager
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon start resourcemanager"
+
+    - name: Wait for ResourceManager to start
+      wait_for:
+        port: 8088
+        delay: 5
+        timeout: 60
+
+- name: Restart NodeManagers after hostname fix
+  hosts: nodemanagers
+  become: yes
+  vars:
+    hadoop_install_dir: "/opt/hadoop"
+    hadoop_user: "hadoop"
+    java_home: "/usr/lib/jvm/java-11-openjdk-amd64"
+  tasks:
+    - name: Stop NodeManager
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon stop nodemanager"
+      ignore_errors: yes
+
+    - name: Wait a moment
+      wait_for:
+        timeout: 3
+
+    - name: Start NodeManager
+      shell: "sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/yarn --daemon start nodemanager"
+
+    - name: Wait for NodeManager to start
+      wait_for:
+        port: 8042
+        delay: 5
+        timeout: 60
