@@ -225,6 +225,263 @@ ssh team@192.168.1.15
 sudo -u hadoop JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/hadoop/bin/yarn application -list -appStates FAILED
 ```
 
+## Apache Hive 4.0.0-alpha2
+
+### Архитектура Hive
+
+**Основные компоненты:**
+- **Hive Metastore** (192.168.1.15:9083) - сервис метаданных с поддержкой множественных клиентов
+- **HiveServer2** (192.168.1.15:10000) - сервер для выполнения HiveQL запросов
+- **MySQL** (192.168.1.15:3306) - база данных для хранения метаданных Metastore
+- **Tez** - движок выполнения запросов (альтернатива MapReduce)
+
+### Веб-интерфейсы Hive
+
+- **HiveServer2 Web UI** (порт 10002) - мониторинг активных сессий и запросов
+- **ResourceManager UI** (порт 8088) - мониторинг Tez приложений
+- **JobHistoryServer UI** (порт 19888) - история выполнения задач
+
+### Развертывание Hive
+
+#### Предварительные требования
+
+1. YARN кластер должен быть развернут и работать
+2. HDFS должен быть доступен
+3. MySQL должен быть установлен (автоматически устанавливается playbook'ом)
+
+#### Установка Hive
+
+```bash
+# Перейдите в папку с плейбуком
+cd bigdata-supplementary-hw02/cluster
+
+# Запустите развертывание Hive
+ansible-playbook -i inventory.ini deploy-hive.yml --ask-become-pass
+```
+
+Процесс развертывания включает:
+1. Установку MySQL и настройку базы данных Metastore
+2. Скачивание и установку Hive 4.0.0-alpha2
+3. Установку и настройку Tez
+4. Настройку конфигурации Hive для работы с множественными клиентами
+5. Инициализацию схемы Metastore
+6. Создание необходимых HDFS директорий
+7. Запуск Hive Metastore и HiveServer2
+
+#### Проверка установки Hive
+
+```bash
+ssh team@192.168.1.15
+bash /opt/hive/scripts/check-hive.sh
+```
+
+### Управление сервисами Hive
+
+#### Управление через скрипт
+
+```bash
+# Показать статус всех сервисов
+bash /opt/hive/scripts/manage-hive-services.sh status
+
+# Запустить все сервисы
+bash /opt/hive/scripts/manage-hive-services.sh start all
+
+# Остановить все сервисы
+bash /opt/hive/scripts/manage-hive-services.sh stop all
+
+# Перезапустить конкретный сервис
+bash /opt/hive/scripts/manage-hive-services.sh restart metastore
+
+# Показать логи
+bash /opt/hive/scripts/manage-hive-services.sh logs all
+```
+
+#### Ручное управление
+
+```bash
+# Запуск Metastore
+sudo -u hive JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/hive/bin/hive --service metastore &
+
+# Запуск HiveServer2
+sudo -u hive JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/hive/bin/hive --service hiveserver2 &
+
+# Остановка сервисов
+sudo -u hive pkill -f "HiveMetaStore"
+sudo -u hive pkill -f "HiveServer2"
+```
+
+### Работа с партиционированными таблицами
+
+#### Создание партиционированной таблицы
+
+```bash
+# Использование скрипта для создания таблицы
+bash /opt/hive/scripts/create-partitioned-table.sh \
+  -d analytics \
+  -t sales_data \
+  -p "year int, month int" \
+  -c "id int, product string, amount double, sale_date string" \
+  -s parquet
+```
+
+#### Загрузка данных в партиционированную таблицу
+
+```bash
+# Загрузка данных из локального файла
+bash /opt/hive/scripts/load-partitioned-data.sh \
+  -d analytics \
+  -t sales_data \
+  -f /tmp/sales_2024_01.csv \
+  -p "year=2024,month=1" \
+  -c
+
+# Загрузка данных из HDFS
+bash /opt/hive/scripts/load-partitioned-data.sh \
+  -d analytics \
+  -t sales_data \
+  -f hdfs:///data/sales/2024/02/ \
+  -p "year=2024,month=2" \
+  -s hdfs
+```
+
+#### Демонстрация работы с партиционированными таблицами
+
+```bash
+# Запуск демо-скрипта
+bash /opt/hive/scripts/demo-partitioned-tables.sh
+```
+
+### Подключение к Hive
+
+#### Через Hive CLI
+
+```bash
+ssh team@192.168.1.15
+sudo -u hive JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/hive/bin/hive
+```
+
+#### Через HiveServer2 (JDBC/ODBC)
+
+- **Host:** 192.168.1.15
+- **Port:** 10000
+- **Database:** default (или имя вашей базы данных)
+- **Driver:** org.apache.hive.jdbc.HiveDriver
+
+#### Через Beeline (рекомендуется)
+
+```bash
+ssh team@192.168.1.15
+sudo -u hive JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/hive/bin/beeline -u "jdbc:hive2://localhost:10000/default"
+```
+
+### Примеры HiveQL запросов
+
+#### Создание базы данных и таблицы
+
+```sql
+-- Создание базы данных
+CREATE DATABASE IF NOT EXISTS analytics;
+USE analytics;
+
+-- Создание партиционированной таблицы
+CREATE TABLE sales_data (
+    id int,
+    product string,
+    amount double,
+    sale_date string
+)
+PARTITIONED BY (
+    year int,
+    month int
+)
+STORED AS PARQUET
+LOCATION '/user/hive/warehouse/analytics.db/sales_data';
+```
+
+#### Загрузка данных
+
+```sql
+-- Загрузка данных в партицию
+LOAD DATA INPATH '/tmp/sales_2024_01.csv' 
+INTO TABLE sales_data 
+PARTITION (year=2024, month=1);
+
+-- Создание партиции вручную
+ALTER TABLE sales_data ADD PARTITION (year=2024, month=2);
+```
+
+#### Запросы к партиционированным таблицам
+
+```sql
+-- Запрос с использованием партиций (partition pruning)
+SELECT product, SUM(amount) as total_sales
+FROM sales_data
+WHERE year=2024 AND month=1
+GROUP BY product;
+
+-- Запрос по всем партициям
+SELECT year, month, COUNT(*) as record_count, SUM(amount) as total_sales
+FROM sales_data
+GROUP BY year, month
+ORDER BY year, month;
+
+-- Показ всех партиций
+SHOW PARTITIONS sales_data;
+```
+
+### Мониторинг и диагностика
+
+#### Проверка статуса кластера
+
+```bash
+# Полная проверка Hive кластера
+bash /opt/hive/scripts/check-hive.sh
+
+# Проверка только Hive сервисов
+bash /opt/hive/scripts/manage-hive-services.sh status
+```
+
+#### Просмотр логов
+
+```bash
+# Логи Metastore
+bash /opt/hive/scripts/manage-hive-services.sh logs metastore
+
+# Логи HiveServer2
+bash /opt/hive/scripts/manage-hive-services.sh logs hiveserver2
+
+# Все логи
+bash /opt/hive/scripts/manage-hive-services.sh logs all
+```
+
+#### Мониторинг через веб-интерфейсы
+
+1. **HiveServer2 Web UI** (http://localhost:10002) - активные сессии и запросы
+2. **ResourceManager UI** (http://localhost:8088) - Tez приложения
+3. **JobHistoryServer UI** (http://localhost:19888) - история выполнения
+
+### Конфигурация
+
+#### Основные файлы конфигурации:
+
+- `cluster/config/hive-site.xml.j2` - основная конфигурация Hive
+- `cluster/config/metastore-site.xml.j2` - конфигурация Metastore
+- `cluster/config/tez-site.xml.j2` - конфигурация Tez
+- `cluster/vars.yml` - переменные для настройки Hive
+
+#### Ansible Playbooks:
+
+- `deploy-hive.yml` - полное развертывание Hive кластера
+- `deploy-scripts.yml` - копирование вспомогательных скриптов
+
+#### Вспомогательные скрипты:
+
+- `scripts/check-hive.sh` - проверка статуса Hive кластера
+- `scripts/manage-hive-services.sh` - управление сервисами Hive
+- `scripts/create-partitioned-table.sh` - создание партиционированных таблиц
+- `scripts/load-partitioned-data.sh` - загрузка данных в партиционированные таблицы
+- `scripts/demo-partitioned-tables.sh` - демонстрация работы с партиционированными таблицами
+
 ## Состав команды
 
 ВШЭ СПб, ПМИ, 4 курс

@@ -9,3 +9,23 @@ nodemanager_ips: ["192.168.1.15", "192.168.1.16", "192.168.1.17"]
 
 yarn_resourcemanager_webapp_address: "127.0.0.1:8088"
 yarn_nodemanager_webapp_address: "127.0.0.1:8042"
+
+postgresql_host: "{{ resourcemanager_ip }}"
+postgresql_port: "5432"
+postgresql_db: "hive_metastore"
+postgresql_user: "hive"
+postgresql_password: "hive_password_123"
+postgresql_admin_password: "postgres_password_123"
+
+# Hive configuration
+hive_version: "4.0.0-alpha-2"
+hive_install_dir: "/opt/hive"
+hive_user: "hive"
+hive_metastore_db: "hive_metastore"
+hive_metastore_user: "hive"
+hive_metastore_password: "hive_password"
+hive_metastore_host: "192.168.1.15"
+hive_metastore_port: "3306"
+hive_metastore_warehouse_dir: "/user/hive/warehouse"
+hive_scratch_dir: "/tmp/hive"
+hive_metastore_uri: "thrift://192.168.1.15:9083"
