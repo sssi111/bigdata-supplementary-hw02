@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Metastore Database Configuration -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://{{ hive_metastore_host }}:{{ hive_metastore_port }}/{{ hive_metastore_db }}?createDatabaseIfNotExist=true&amp;useSSL=false</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.cj.jdbc.Driver</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>{{ hive_metastore_user }}</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>{{ hive_metastore_password }}</value>
+    </property>
+    
+    <!-- Metastore Service Configuration -->
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>hdfs://{{ resourcemanager_ip }}:9000{{ hive_metastore_warehouse_dir }}</value>
+    </property>
+    
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+    
+    <property>
+        <name>hive.metastore.schema.verification.record.version</name>
+        <value>false</value>
+    </property>
+    
+    <!-- Metastore Thrift Configuration -->
+    <property>
+        <name>hive.metastore.thrift.port</name>
+        <value>9083</value>
+    </property>
+    
+    <property>
+        <name>hive.metastore.thrift.bind.host</name>
+        <value>0.0.0.0</value>
+    </property>
+    
+    <!-- Metastore Security -->
+    <property>
+        <name>hive.metastore.execute.setugi</name>
+        <value>true</value>
+    </property>
+    
+    <!-- Metastore Statistics -->
+    <property>
+        <name>hive.stats.autogather</name>
+        <value>true</value>
+    </property>
+    
+    <!-- Metastore Compaction -->
+    <property>
+        <name>hive.compactor.worker.threads</name>
+        <value>1</value>
+    </property>
+    
+    <!-- Metastore Transaction Support -->
+    <property>
+        <name>hive.support.concurrency</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>hive.enforce.bucketing</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>hive.exec.dynamic.partition.mode</name>
+        <value>nonstrict</value>
+    </property>
+</configuration>
