@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- PostgreSQL Metastore Configuration -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:postgresql://{{ postgresql_host }}:{{ postgresql_port }}/{{ postgresql_db }}</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>org.postgresql.Driver</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>{{ postgresql_user }}</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>{{ postgresql_password }}</value>
+    </property>
+
+    <!-- Metastore URIs -->
+    <property>
+        <name>hive.metastore.uris</name>
+        <value>{{ hive_metastore_uri }}</value>
+    </property>
+    
+    <!-- Warehouse Directory -->
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>{{ hive_metastore_warehouse_dir }}</value>
+    </property>
+    
+    <!-- Scratch Directory -->
+    <property>
+        <name>hive.exec.scratchdir</name>
+        <value>{{ hive_scratch_dir }}</value>
+    </property>
+
+    <!-- Schema Verification -->
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+
+    <!-- DataNucleus -->
+    <property>
+        <name>datanucleus.autoCreateSchema</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+    </property>
+
+    <!-- Execution Engine -->
+    <property>
+        <name>hive.execution.engine</name>
+        <value>mr</value>
+    </property>
+
+    <!-- Server Configuration -->
+    <property>
+        <name>hive.server2.thrift.port</name>
+        <value>10000</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.thrift.bind.host</name>
+        <value>{{ resourcemanager_ip }}</value>
+    </property>
+
+    <!-- Security -->
+    <property>
+        <name>hive.server2.authentication</name>
+        <value>NONE</value>
+    </property>
+    
+    <property>
+        <name>hive.metastore.event.db.notification.api.auth</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>metastore.metastore.event.db.notification.api.auth</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>hive.server2.enable.doAs</name>
+        <value>false</value>
+    </property>
+
+    <!-- Metastore Configuration -->
+    <property>
+        <name>hive.metastore.thrift.port</name>
+        <value>9083</value>
+    </property>
+    
+    <property>
+        <name>hive.metastore.thrift.bind.host</name>
+        <value>{{ resourcemanager_ip }}</value>
+    </property>
+
+    <property>
+        <name>hadoop.proxyuser.hive.hosts</name>
+        <value>*</value>
+    </property>
+
+    <!-- Hive 4.0 Specific Settings -->
+    <property>
+        <name>hive.metastore.client.capability.check</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>hive.metastore.schema.verification.record.version</name>
+        <value>false</value>
+    </property>
+
+        <property>
+        <name>metastore.event.db.notification.api.auth</name>
+        <value>false</value>
+        <description>Disable authentication for notification events API</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.notifications.add.thrift.objects</name>
+        <value>false</value>
+        <description>Disable adding thrift objects to notifications</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.event.listeners</name>
+        <value></value>
+        <description>Disable all event listeners</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.alter.notifications.basic</name>
+        <value>false</value>
+        <description>Disable basic alter notifications</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.dml.events</name>
+        <value>false</value>
+        <description>Disable DML events</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.event.clean.freq</name>
+        <value>0s</value>
+        <description>Disable event cleaning</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.event.message.factory</name>
+        <value></value>
+        <description>Disable event message factory</description>
+    </property>
+
+    <property>
+        <name>hive.metastore.transactional.event.listeners</name>
+        <value></value>
+        <description>Disable transactional event listeners</description>
+    </property>
+
+    <!-- Дополнительные настройки для отключения уведомлений -->
+    <property>
+        <name>hive.metastore.notification.parameters</name>
+        <value></value>
+    </property>
+
+    <property>
+        <name>hive.metastore.notification.parameters.whitelist</name>
+        <value></value>
+    </property>
+
+    <property>
+        <name>hive.metastore.notification.parameters.blacklist</name>
+        <value></value>
+    </property>
+
+</configuration>
