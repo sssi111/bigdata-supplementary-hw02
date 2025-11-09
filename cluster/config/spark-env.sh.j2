@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+# Java Home
+export JAVA_HOME={{ java_home }}
+
+# Hadoop Configuration Directory
+export HADOOP_CONF_DIR={{ hadoop_install_dir }}/etc/hadoop
+
+# Yarn Configuration Directory
+export YARN_CONF_DIR={{ hadoop_install_dir }}/etc/hadoop
+
+# Spark Home
+export SPARK_HOME={{ spark_install_dir | default('/opt/spark') }}
+
+# Spark Log Directory
+export SPARK_LOG_DIR={{ spark_install_dir | default('/opt/spark') }}/logs
+
+# Spark Master (use yarn for YARN cluster)
+export SPARK_MASTER_HOST={{ resourcemanager_ip }}
+
+# History Server Configuration
+export SPARK_HISTORY_OPTS="-Dspark.history.fs.logDirectory=hdfs://{{ resourcemanager_ip }}:9000/spark/logs"
+
+# Memory settings
+export SPARK_EXECUTOR_MEMORY=1g
+export SPARK_DRIVER_MEMORY=1g
+
+# Python path for PySpark
+export PYSPARK_PYTHON=python3
+
+# Hive Metastore configuration
+export HIVE_CONF_DIR={{ hive_install_dir | default('/opt/hive') }}/conf
+
+

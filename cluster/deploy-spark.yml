@@ -1,0 +1,178 @@
+---
+- name: Deploy Apache Spark on YARN cluster
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  vars:
+    spark_version: "3.5.0"
+    spark_hadoop_version: "3"
+    spark_install_dir: "/opt/spark"
+    spark_user: "spark"
+    
+  tasks:
+    - name: Create Spark user
+      user:
+        name: "{{ spark_user }}"
+        state: present
+        shell: /bin/bash
+        createhome: yes
+
+    - name: Check if Spark is already installed
+      stat:
+        path: "{{ spark_install_dir }}/bin/spark-submit"
+      register: spark_installed
+
+    - name: Download Apache Spark
+      get_url:
+        url: "https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop{{ spark_hadoop_version }}.tgz"
+        dest: "/tmp/spark-{{ spark_version }}-bin-hadoop{{ spark_hadoop_version }}.tgz"
+        timeout: 1800  # 30 минут для медленного соединения
+      when: not spark_installed.stat.exists
+
+    - name: Extract Spark archive
+      unarchive:
+        src: "/tmp/spark-{{ spark_version }}-bin-hadoop{{ spark_hadoop_version }}.tgz"
+        dest: "/opt/"
+        remote_src: yes
+        creates: "/opt/spark-{{ spark_version }}-bin-hadoop{{ spark_hadoop_version }}"
+      when: not spark_installed.stat.exists
+
+    - name: Create Spark symlink
+      file:
+        src: "/opt/spark-{{ spark_version }}-bin-hadoop{{ spark_hadoop_version }}"
+        dest: "{{ spark_install_dir }}"
+        state: link
+      when: not spark_installed.stat.exists
+
+    - name: Set ownership for Spark directory
+      file:
+        path: "/opt/spark-{{ spark_version }}-bin-hadoop{{ spark_hadoop_version }}"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        recurse: yes
+
+    - name: Create Spark configuration directory
+      file:
+        path: "{{ spark_install_dir }}/conf"
+        state: directory
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+
+    - name: Copy spark-env.sh configuration
+      template:
+        src: config/spark-env.sh.j2
+        dest: "{{ spark_install_dir }}/conf/spark-env.sh"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+
+    - name: Copy spark-defaults.conf configuration
+      template:
+        src: config/spark-defaults.conf.j2
+        dest: "{{ spark_install_dir }}/conf/spark-defaults.conf"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0644'
+
+    - name: Create Spark logs directory
+      file:
+        path: "{{ spark_install_dir }}/logs"
+        state: directory
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+
+    - name: Create Spark scripts directory
+      file:
+        path: "{{ spark_install_dir }}/scripts"
+        state: directory
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+
+    - name: Copy Spark example scripts
+      copy:
+        src: "{{ item }}"
+        dest: "{{ spark_install_dir }}/scripts/"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+      with_fileglob:
+        - "scripts/spark-*.py"
+        - "scripts/check-spark.sh"
+        - "scripts/verify-spark-hive.sh"
+        - "scripts/fix-spark-hdfs-permissions.sh"
+
+    - name: Add Spark to PATH
+      lineinfile:
+        path: /etc/profile.d/spark.sh
+        line: 'export PATH=$PATH:{{ spark_install_dir }}/bin'
+        create: yes
+        mode: '0644'
+
+    - name: Create Spark user home directory in HDFS
+      shell: |
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -mkdir -p /user/{{ spark_user }}
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chown {{ spark_user }}:{{ spark_user }} /user/{{ spark_user }}
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chmod 755 /user/{{ spark_user }}
+      when: inventory_hostname == groups['resourcemanager'][0]
+      ignore_errors: yes
+
+    - name: Create Spark staging directory in HDFS
+      shell: |
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -mkdir -p /user/{{ spark_user }}/.sparkStaging
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chown {{ spark_user }}:{{ spark_user }} /user/{{ spark_user }}/.sparkStaging
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chmod 700 /user/{{ spark_user }}/.sparkStaging
+      when: inventory_hostname == groups['resourcemanager'][0]
+      ignore_errors: yes
+
+    - name: Create HDFS directories for Spark
+      shell: |
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -mkdir -p /spark/logs
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -mkdir -p /spark/warehouse
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chown -R {{ spark_user }}:{{ spark_user }} /spark
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chmod -R 755 /spark
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chmod 777 /spark/warehouse
+      when: inventory_hostname == groups['resourcemanager'][0]
+      ignore_errors: yes
+
+    - name: Create sample data directory in HDFS
+      shell: |
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -mkdir -p /data/sample
+        sudo -u {{ hadoop_user }} JAVA_HOME={{ java_home }} {{ hadoop_install_dir }}/bin/hdfs dfs -chmod -R 777 /data
+      when: inventory_hostname == groups['resourcemanager'][0]
+      ignore_errors: yes
+
+- name: Configure Spark on ResourceManager node
+  hosts: resourcemanager
+  become: yes
+  vars_files:
+    - vars.yml
+  vars:
+    spark_version: "3.5.0"
+    spark_install_dir: "/opt/spark"
+    spark_user: "spark"
+
+  tasks:
+    - name: Display Spark installation information
+      debug:
+        msg: |
+          Spark {{ spark_version }} has been successfully installed on all nodes!
+          
+          Spark Home: {{ spark_install_dir }}
+          Spark User: {{ spark_user }}
+          
+          To submit a Spark application:
+          sudo -u {{ spark_user }} JAVA_HOME={{ java_home }} {{ spark_install_dir }}/bin/spark-submit \
+            --master yarn \
+            --deploy-mode cluster \
+            --driver-memory 1g \
+            --executor-memory 1g \
+            --executor-cores 1 \
+            your_application.py
+          
+          Check Spark documentation and examples in {{ spark_install_dir }}/scripts/
+
+

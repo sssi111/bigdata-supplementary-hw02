@@ -29,3 +29,9 @@ hive_metastore_port: "3306"
 hive_metastore_warehouse_dir: "/user/hive/warehouse"
 hive_scratch_dir: "/tmp/hive"
 hive_metastore_uri: "thrift://192.168.1.15:9083"
+
+# Spark configuration
+spark_version: "3.5.0"
+spark_hadoop_version: "3"
+spark_install_dir: "/opt/spark"
+spark_user: "spark"
