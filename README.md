@@ -1,8 +1,14 @@
 # bigdata-supplementary-hw04
 
-Apache Spark 3.5.0 под управлением YARN для чтения, трансформации и записи данных.
+Apache Spark 3.5.0 под управлением YARN для чтения, трансформации и записи данных с оркестрацией через Prefect.
 
 ## Быстрый старт
+
+### 0. Установка зависимостей
+
+```bash
+pip3 install -r requirements.txt
+```
 
 ### 1. Развертывание Spark
 
@@ -25,7 +31,40 @@ sudo -u spark JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/spark/bin/spark-
   /opt/spark/scripts/spark-data-processing.py
 ```
 
-### 3. Проверка через Spark SQL
+### 3. Запуск через Prefect Workflow
+
+```bash
+python3 spark_workflow.py
+```
+
+Кастомная конфигурация:
+
+```python
+CLUSTER_CONFIG = {
+    "host": "192.168.1.15",
+    "username": "team", 
+    "spark_user": "spark",
+    "spark_home": "/opt/spark",
+    "java_home": "/usr/lib/jvm/java-11-openjdk-amd64",
+    "script_path": "/opt/spark/scripts/spark-data-processing.py"
+}
+```
+
+### 4. Ручной запуск Spark job
+
+```bash
+ssh team@192.168.1.15
+sudo -u spark JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/spark/bin/spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --driver-memory 1g \
+  --executor-memory 1g \
+  --executor-cores 1 \
+  --num-executors 2 \
+  /opt/spark/scripts/spark-data-processing.py
+```
+
+### 5. Проверка через Spark SQL
 
 ```bash
 sudo -u spark JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/spark/bin/spark-sql \
@@ -41,9 +80,21 @@ sudo -u spark JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 /opt/spark/bin/spark-
 - HDFS Integration - чтение/запись данных из HDFS кластера
 - Hive Metastore Integration - работа с Hive таблицами
 
-## Демонстрационный скрипт
+## Демонстрационные скрипты
 
-Скрипт `spark-data-processing.py` выполняет полный цикл обработки данных:
+Скрипты `spark-data-processing.py` выполняет полный цикл обработки данных на Spark, а `spark_worklflow.py` на Prefect.
+
+### Prefect Workflow
+
+Оркестрация выполняется через Prefect flow с последовательным выполнением задач:
+
+1. `check_cluster_connection` - проверка доступности YARN, HDFS, Hive
+2. `prepare_hdfs_environment` - создание директорий в HDFS
+3. `submit_spark_job` - запуск Spark приложения через SSH
+4. `verify_hive_tables` - проверка созданных таблиц
+5. `generate_summary_report` - итоговый отчет
+
+Конфигурация кластера задается в `CLUSTER_CONFIG` в `spark_workflow.py`.
 
 ### 1. Создание Spark сессии под YARN
 
